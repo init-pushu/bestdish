@@ -1,24 +1,20 @@
-import Layout from "../../components/Layout";
-import Link from "next/link";
-import Router from "next/router";
+import Layout from "../components/Layout";
 import axios from "axios";
+import Link from "next/link";
+import { useState, useEffect, Fragment } from "react";
+// import { API,APP_NAME } from '../config';
 import moment from "moment";
-// import { API,APP_NAME } from '../../config';
-import { getCookie } from "../../helpers/auth";
-import withUser from "../withUser";
-import { EyeFilled } from "@ant-design/icons";
 import Head from "next/head";
+import { EyeFilled } from "@ant-design/icons";
+import Footer from "../components/Footer";
 
-const User = ({ user, userLinks, token }) => {
+const Home = ({ categories }) => {
   // const API = "https://puzzled-gabardine-clam.cyclic.app/api";
   const API = "http://localhost:8000/api";
-
   const APP_NAME = "Top Dish";
   const head = () => (
     <Head>
-      <title>
-        {"User Dashboard"} | {APP_NAME}
-      </title>
+      <title>{APP_NAME}</title>
       <link rel="shortcut icon" href="/static/icons/favicon.ico" />
       <meta
         name="description"
@@ -28,42 +24,42 @@ const User = ({ user, userLinks, token }) => {
       <meta property="title" content={APP_NAME} />
       <meta property="og:description" content={`Find best meal in your area`} />
       <link rel="stylesheet" href="/static/styles/style.css" />
-
       {/* logo here */}
     </Head>
   );
-  const confirmDelete = (e, id) => {
-    e.preventDefault();
-    // console.log('delete > ', slug);
-    let answer = window.confirm("Are you sure you want to delete?");
-    if (answer) {
-      handleDelete(id);
-    }
+  const [allCategories, SetCategories] = useState(categories);
+  const [query, setQuery] = useState("");
+  const [state, setState] = useState({
+    links: [],
+  });
+  const { links } = state;
+  useEffect(() => {
+    loadLinks();
+  }, []);
+  const loadLinks = async () => {
+    const response = await axios.get(`${API}/link/popular`);
+    console.log("Main---", response.data);
+    setState({ ...state, links: response.data });
   };
 
-  const handleDelete = async (id) => {
-    console.log("delete link > ", id);
-    try {
-      const response = await axios.delete(`${API}/link/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      console.log("LINK DELETE SUCCESS ", response);
-      Router.replace("/user");
-    } catch (error) {
-      console.log("LINK DELETE ", error);
-    }
+  const handleCount = async (linkId) => {
+    const response = await axios.put(`${API}/click-count`, { linkId });
+    loadUpdatedLinks();
   };
-
-  const listOfLinks = () =>
-    userLinks.map((l, i) => (
-      <div key={i} className="row alert alert-primary p-2 primary-link">
-        <div className="col-md-8">
+  const loadUpdatedLinks = async () => {
+    loadLinks();
+  };
+  const listOfLinks = () => {
+    return links.map((l, i) => (
+      <div key={i} className="row alert alert-light p-2 primary-link ">
+        <div class="ribbon ribbon-top-right">
+          <span>Top item</span>
+        </div>
+        <div className="col-md-8" onClick={(e) => handleCount(l._id)}>
           <a href={l.url} target="_blank">
             <h5 className="pt-2">{l.title}</h5>
             <h6 className="pt-2 text-danger" style={{ fontSize: "12px" }}>
-              {l.url.substring(0, 50)}
+              {l.url.substring(0, 110)}
             </h6>
           </a>
         </div>
@@ -71,80 +67,99 @@ const User = ({ user, userLinks, token }) => {
           <span className="pull-right">
             {moment(l.createdAt).fromNow()} by {l.postedBy.name}
           </span>
+          <br />
+          {/* <span className="badge text-secondary pull-right">{l.clicks} clicks</span> */}
         </div>
-
         <div
-          className="col-md-12 mt-1"
+          className="col-md-8 mt-2"
           style={{ display: "flex", flexDirection: "row" }}
         >
-          <div className="text-center">
-            <span className="badge text-dark">
-              {l.price} Rupees / GST {l.gst}
-            </span>
-            <span className="badge text-success">{l.category.name}</span>
-          </div>
-          <Link href={`/user/link/${l._id}`}>
-            <button
-              style={{ fontSize: "13px" }}
-              className="btn btn-success text-light ml-4 mr-2 pl-2 pr-2 pull-right"
-            >
-              <span>Update</span>
-            </button>
-          </Link>
-          <button
-            onClick={(e) => confirmDelete(e, l._id)}
-            className="btn btn-danger text-light mr-2 p-1 text-danger pull-right"
-          >
-            <span>Delete</span>
-          </button>
+          <span className="badge text-dark">
+            {l.price} Rupees / GST {l.gst}
+          </span>
+          <span className="badge text-success">{l.category.name}</span>
+        </div>
+        <div className="col-md-4">
           <span
             className="text-secondary pull-left ml-auto"
-            style={{ marginRight: "10.7rem", fontSize: "13px" }}
+            style={{ marginRight: "18.6rem", fontSize: "14px" }}
           >
-            <EyeFilled /> {l.clicks}
+            <div>
+              <EyeFilled /> {l.clicks}
+            </div>
           </span>
         </div>
       </div>
     ));
+  };
+
+  const listCategories = () =>
+    allCategories
+      .filter((i) => i.name.toUpperCase().includes(query))
+      .map((c, i) => (
+        <Link key={i} href={`/links/${c.slug}`}>
+          <a className="list-categories">
+            <img
+              src={c.image && c.image.url}
+              alt={c.name}
+              className="category-image"
+            />
+            <p className="category-name">{c.name}</p>
+          </a>
+        </Link>
+      ));
 
   return (
-    <>
+    <Fragment>
       {head()}
       <Layout>
-        <div className="container pt-5 pb-5 bg-col">
-          <h1 className="text-light m-nav2 text-span5">
-            <span className="text-span">{user.name}</span> 's Dashboard{" "}
-            <span className="text-span">/{user.role}</span>
-          </h1>
-          <hr />
-
+        <div className="container">
           <div className="row">
-            <div className="col-md-4 marg-b-pages">
-              <ul className="nav flex-column">
-                <li className="nav-item">
-                  <Link href="/user/link/create">
-                    <a className="nav link text-light">• Submit a Location</a>
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link href="/user/profile/update">
-                    <a className="nav link text-light">• Update Profile</a>
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div className="col-md-8">
-              <h2 className="text-light marg-2 text-span5 text-uppercase">
-                All Locations you have added
-              </h2>
-              {listOfLinks()}
+            <div className="col-md-12 mt-5 mb-2">
+              <h1 className="font-weight-bold text-center heading-awesome m-nav text-span5">
+                Browse Your <span className="text-span">Favourite</span> Food
+              </h1>
+              <br />
             </div>
           </div>
         </div>
+        <div className="container marg-2">
+          <div className="row d-flex justify-content-center">
+            <input
+              type="text"
+              className="form-inp"
+              placeholder="Search your favourite food here..."
+              onChange={(e) => setQuery(e.target.value.toUpperCase())}
+            />
+          </div>
+        </div>
+        <div className="container">
+          <div className="row mt-2">{listCategories()}</div>
+        </div>
+        <div className="container">
+          <div className="row low-heading">
+            <h1 className="ml-2 heading-awesome-small text-span5">
+              Most <span className="text-span">Voted Items</span> in all
+              categories
+            </h1>
+            <div className="col-md-12 mt-2">{listOfLinks()}</div>
+          </div>
+        </div>
       </Layout>
-    </>
+      <Footer />
+    </Fragment>
   );
 };
 
-export default withUser(User);
+Home.getInitialProps = async () => {
+  // const API = "https://puzzled-gabardine-clam.cyclic.app/api";
+  const API = "http://localhost:8000/api";
+
+  const APP_NAME = "Top Dish";
+  const response = await axios.get(`${API}/categories`);
+  return {
+    categories: response.data,
+  };
+};
+
+export default Home;
